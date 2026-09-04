@@ -1132,6 +1132,8 @@ interface DebugHook {
   seekAll(t: number): Promise<void>
   params: RenderParams
   clock: MasterClock
+  /** render graph 的插拔驗證用。產品路徑不從這裡拿 compositor。 */
+  compositor: Compositor
   /** 直接驅動一格（推進時鐘 → 重新對位判斷 → 取格 → 繪製），繞過 rAF。 */
   tick(): { time: number; shown: [number | null, number | null]; seeking: boolean; starved: boolean }
   runSeekTest(): Promise<void>
@@ -1159,6 +1161,7 @@ const debugHook: DebugHook = {
   },
   params,
   clock,
+  compositor,
   tick: () => {
     const snap = renderSnapshot(playback.update())
     return {
