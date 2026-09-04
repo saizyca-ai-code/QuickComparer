@@ -1,0 +1,135 @@
+{
+  "recordedAt": "2026-09-04T23:18:48.040Z",
+  "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/152.0.0.0 Safari/537.36",
+  "hardwareConcurrency": 16,
+  "compositor": {
+    "halfFloatRenderable": true,
+    "intermediateFormat": "rgba16f",
+    "maxTextureSize": 16384,
+    "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 (0x00002C02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "gpuTimingAvailable": true
+  },
+  "renderGraph": [
+    "composite",
+    "output"
+  ],
+  "sources": [
+    {
+      "slot": "A",
+      "name": "be_mokey_before_DLSS5_4K.mp4",
+      "width": 3840,
+      "height": 2160,
+      "frameRate": 30.002608922514998,
+      "duration": 7.666,
+      "codec": "avc1.640033",
+      "colorSpace": {
+        "primaries": "bt709",
+        "transfer": "bt709",
+        "matrix": "bt709",
+        "fullRange": false,
+        "origin": "assumed"
+      }
+    },
+    {
+      "slot": "B",
+      "name": "be_mokey_after_v1_DLSS5_4K.mp4",
+      "width": 3840,
+      "height": 2160,
+      "frameRate": 23.99900522258145,
+      "duration": 8.042,
+      "codec": "avc1.640033",
+      "colorSpace": {
+        "primaries": "bt709",
+        "transfer": "bt709",
+        "matrix": "bt709",
+        "fullRange": false,
+        "origin": "assumed"
+      }
+    }
+  ],
+  "playback": {
+    "fps": 60.009001350200435,
+    "frameTimeMeanMs": 16.66416666666725,
+    "frameTimeP95Ms": 16.800000000046566,
+    "frameTimeWorstMs": 17
+  },
+  "buffers": [
+    {
+      "buffered": 9,
+      "decoded": 1410,
+      "dropped": 1401,
+      "queueSize": 8,
+      "estimatedBytes": 111974400,
+      "seeking": false,
+      "bufferedFrom": 0.067,
+      "bufferedUntil": 0.334
+    },
+    {
+      "buffered": 9,
+      "decoded": 1143,
+      "dropped": 1134,
+      "queueSize": 8,
+      "estimatedBytes": 111974400,
+      "seeking": false,
+      "bufferedFrom": 0.083,
+      "bufferedUntil": 0.416
+    }
+  ],
+  "seek": {
+    "meanMs": 0,
+    "worstMs": 0,
+    "measurements": []
+  },
+  "heap": {
+    "available": true,
+    "currentBytes": 50666004,
+    "growthBytesPerMinute": -7299178.6200816855
+  },
+  "passthrough": null,
+  "benchmark": {
+    "fps": 251.70253336965405,
+    "nominalFps": 30.002608922514998,
+    "realtime": true,
+    "frames": 1386,
+    "renderWidth": 2560,
+    "renderHeight": 1440,
+    "submitMeanMs": 0.350432900430851,
+    "submitP95Ms": 0.5999999999767169,
+    "gpuMeanMs": 0.7410257512437816,
+    "gpuP95Ms": 5.782048,
+    "gpuWorstMs": 16.39632,
+    "gpuDiscarded": 0,
+    "waitMeanMs": 3.4508658008684217,
+    "waitWorstMs": 500.10000000009313,
+    "decodeBoundRatio": 0.907812322059544,
+    "starved": 6,
+    "peakBufferedBytes": 211507200,
+    "heapGrowthPerMinute": 59395971.47504008,
+    "frameLedgerBalanced": true
+  },
+  "decoderConcurrency": [],
+  "renderParams": {
+    "layout": "single",
+    "compareMode": "slider",
+    "showSource": 0,
+    "splitPos": 0.5,
+    "splitAngle": 0,
+    "splitWidth": 0.0015,
+    "splitLinePx": 1.5,
+    "splitLineColor": [
+      0.75,
+      0.78,
+      0.85
+    ],
+    "splitPivotPx": 11,
+    "interpolation": "nearest",
+    "diffGain": 1,
+    "outputTransfer": "srgb",
+    "toneMap": false,
+    "zoom": 1,
+    "pan": {
+      "x": 0,
+      "y": 0
+    }
+  }
+}
