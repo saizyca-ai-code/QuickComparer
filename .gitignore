@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.vite/
+*.local
+
+# 量測結果納入版控：Phase 0 的證據，也是日後效能回歸的基準線。
+
+# Local test media (never commit)
+testdata/
+test_assets/

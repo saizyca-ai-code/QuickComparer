@@ -1,0 +1,263 @@
+{
+  "note": "Phase 0 技術驗證基準線。日後改動解碼或合成路徑後重跑，用來比對效能回歸。合成素材由 ffmpeg testsrc2 產生，真實素材為使用者提供，皆不納入版控。",
+  "recordedAt": "2026-09-04（第四輪：seek 閃爍修正與 seek 成本重測）",
+  "environment": {
+    "gpu": "ANGLE (NVIDIA, NVIDIA GeForce RTX 5080 (0x00002C02) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+    "os": "Windows 11 Pro 10.0.22631",
+    "browser": "Chromium (Claude Code Browser pane)",
+    "halfFloatRenderable": true,
+    "intermediateFormat": "rgba16f",
+    "maxTextureSize": 16384,
+    "gpuTimingAvailable": true
+  },
+  "testMedia": {
+    "generator": "ffmpeg -f lavfi -i testsrc2, libx264 yuv420p, GOP 30, 10s, 30fps",
+    "clips": {
+      "a_1080p.mp4": "1920x1080 crf18 bt709 標記完整",
+      "b_1080p_blur.mp4": "同上 + gblur sigma=1.2",
+      "a_4k.mp4": "3840x2160 crf20 bt709 標記完整",
+      "b_4k_blur.mp4": "同上 + gblur sigma=1.5",
+      "small_480p.mp4": "480x270 無色彩標記，用來驗證假設值路徑"
+    },
+    "realAssets": {
+      "location": "test_assets/（未納入版控）",
+      "be_mokey_before.mp4": "1280x720 30fps 7.68s，has_b_frames=0，13 個 keyframe，色彩標記完整",
+      "be_mokey_after_v1.mp4": "1280x720 24fps 8.096s，has_b_frames=2，**整支只有 1 個 keyframe**，無色彩標記",
+      "export.mp4": "1920x1080 30fps 8.93s，has_b_frames=0，無色彩標記",
+      "export_DLSS5_0.5.mp4": "1920x1080 30fps 9.0s，has_b_frames=2，6 個 keyframe，無色彩標記"
+    }
+  },
+  "playback": {
+    "dual_1080p": {
+      "renderSize": "2560x1440",
+      "sustainableFps": 267.7,
+      "nominalFps": 30,
+      "headroom": "8.9x",
+      "gpuMeanMs": 0.281,
+      "gpuP95Ms": 0.289,
+      "gpuWorstMs": 16.54,
+      "submitMeanMs": 0.363,
+      "waitMeanMs": 2.974,
+      "decodeBoundRatio": 0.891,
+      "peakBufferedBytes": 49766400,
+      "frameLedgerBalanced": true,
+      "repeatRuns": "276.4 / 274.9 / 299.1 fps（三次重測，與首次 267.7 一致）"
+    },
+    "dual_4k": {
+      "renderSize": "3840x2160",
+      "sustainableFps": 173.7,
+      "nominalFps": 30,
+      "headroom": "5.8x",
+      "gpuMeanMs": 0.371,
+      "gpuP95Ms": 0.427,
+      "gpuWorstMs": 17.94,
+      "submitMeanMs": 0.456,
+      "waitMeanMs": 4.652,
+      "decodeBoundRatio": 0.911,
+      "peakBufferedBytes": 199065600,
+      "frameLedgerBalanced": true,
+      "afterRound2Fixes": {
+        "sustainableFps": 258.0,
+        "gpuMeanMs": 0.563,
+        "peakBufferedBytes": 224395264,
+        "frameLedgerBalanced": true,
+        "comment": "較修正前的 173.7 fps 提升，峰值緩衝因保留 4 格歷史而略增"
+      }
+    },
+    "dual_4k_sustained_40s": {
+      "sustainableFps": 195.5,
+      "frames": 7826,
+      "heapGrowthPerMinute": -85547787,
+      "comment": "堆為負成長，無洩漏跡象"
+    },
+    "real_1080p_export_pair": {
+      "sources": "export.mp4 vs export_DLSS5_0.5.mp4",
+      "renderSize": "2560x1440",
+      "sustainableFps": 482.6,
+      "nominalFps": 30.1,
+      "headroom": "16x",
+      "gpuMeanMs": 0.328,
+      "gpuP95Ms": 0.961,
+      "waitMeanMs": 1.4,
+      "decodeBoundRatio": 0.813,
+      "peakBufferedBytes": 80870400,
+      "frameLedgerBalanced": true,
+      "afterRound2Fixes": {
+        "sustainableFps": 544.2,
+        "gpuMeanMs": 0.128
+      }
+    },
+    "coldStartCaveat": "頁面載入後的第一次 benchmark 可能慢一個量級（實測 17.1 fps vs 穩定後 180 fps），且可能撐過一輪 3 秒暖身仍未散去。屬解碼器冷啟動與 demux 的 GC 壓力。量測前應跑兩輪暖身；UI 上代表載入素材後的前幾秒播放可能卡頓。",
+    "real_4k_dlss_pair": {
+      "sources": "be_mokey_before_DLSS5_4K.mp4 vs be_mokey_after_v1_DLSS5_4K.mp4",
+      "renderSize": "3840x2160",
+      "sustainableFps": 170.9,
+      "gpuMeanMs": 1.186,
+      "peakBufferedBytes": 224395264,
+      "frameLedgerBalanced": true,
+      "colorPassthrough": "最大偏差 0/255",
+      "afterRound4Fixes": {
+        "sustainableFps": 273.2,
+        "gpuMeanMs": 0.34,
+        "peakBufferedBytes": 199229440,
+        "frameLedgerBalanced": true,
+        "colorPassthrough": "最大偏差 0/255"
+      }
+    }
+  },
+  "seek": {
+    "dual_1080p": {
+      "meanMs": 25.4,
+      "worstMs": 58.0
+    },
+    "dual_4k": {
+      "meanMs": 39.9,
+      "worstMs": 82.0
+    },
+    "method": "跳到片長的 7 個位置，計時涵蓋回溯 keyframe 與往前解碼至目標的完整成本",
+    "real_export_pair": {
+      "meanMs": 54.7,
+      "worstMs": 76.8
+    },
+    "keyframeDistanceEffect": {
+      "finding": "seek 成本隨『目標距離最近 keyframe 的距離』線性成長，因為必須從該 keyframe 一路解過去。",
+      "measured_be_mokey_after_v1": "整支只有 1 個 keyframe，seek 到 1.0s 為 54ms、4.0s 為 116ms、7.6s 為 148ms（720p）",
+      "implication": "4K 的單 keyframe 長片段會明顯更慢，Phase 2/3 可能需要建索引或 proxy。"
+    },
+    "afterCorrectSeek": {
+      "dual_4k": {
+        "meanMs": 76.2,
+        "worstMs": 126.5
+      },
+      "warning": "此數字比修正前的 39.9/82 ms 慢，但修正前的 seek 並未真的解到目標時間（見 bugsFoundByRealAssets 第 2 項），那個數字量的是一個未完成的操作。76.2 ms 才是 seek 的真實成本。"
+    },
+    "real_4k_singleKeyframe": {
+      "sources": "兩支 4K DLSS 檔案各自只有 1 個 keyframe（230 格 / 193 格）",
+      "meanMs": 528.4,
+      "worstMs": 1164.7,
+      "byTargetMs": {
+        "0.5s": 60,
+        "2s": 438,
+        "4s": 6205,
+        "6s": 679,
+        "7.5s": 1491
+      },
+      "conclusion": "這是 Phase 0 先前標記的『seek 成本隨 keyframe 距離成長』風險的實測值。4K 單 keyframe 素材的 seek 需數百毫秒到數秒，拖動 timeline 不可用。t=4s 的 6205ms 已接近 8 秒逾時上限。",
+      "recommendation": "最務實的解法是匯入時正規化 GOP：把素材轉檔到專案資料夾並加密 keyframe（例如 -g 15）。這比建立影格索引或 proxy 系統便宜得多，也符合既有的『轉換產物存放於專案資料夾』決定。",
+      "correction": {
+        "supersededNumbers": "先前記錄的 528.4 ms 平均 / 1164.7 ms 最差已作廢",
+        "why": "那次量測時互動繪製迴圈仍與 seek 並行操作同一批 FrameSource，且含一個 6205 ms 的離群值",
+        "remeasured": "修正後四次重測：平均 189 / 194 / 201 / 269 ms，最差 338 / 381 / 456 / 457 ms",
+        "revisedConclusion": "4K 單 keyframe 素材的 seek 約 200 ms 平均、400 ms 最差。明顯但非不可用，先前『拖動 timeline 不可用』的說法過重。GOP 正規化仍然值得做，但可排在 Phase 3 而非緊急項。"
+      }
+    }
+  },
+  "colorPassthrough": {
+    "dual_1080p": "最大偏差 0/255、非零像素 0.000%",
+    "dual_4k": "最大偏差 0/255、非零像素 0.000%",
+    "method": "同一來源同時餵入 A 與 B，diff 模式渲染後讀回像素，逐位比對",
+    "conclusion": "輸入 → 線性光 → 輸出 的來回是位元精確的",
+    "real_export_pair": "最大偏差 0/255、非零像素 0.000%"
+  },
+  "interpolationGpuCostMs": {
+    "renderSize": "3840x2160",
+    "nearest": 0.146,
+    "bilinear": 0.103,
+    "bicubic": 0.489,
+    "comment": "bicubic 約為 nearest 的 3–5 倍，但相對 33ms 的影格預算仍可忽略"
+  },
+  "decoderConcurrency": {
+    "4k": {
+      "totalFpsPlateau": "約 900–970 fps，1 至 10 路皆維持",
+      "perStreamAt8": 119.5,
+      "perStreamAt12": 34.4,
+      "cliffAt": 13,
+      "cliffValue": "總計 7 fps、每路 0.6 fps",
+      "comment": "硬體解碼器 session 上限造成的懸崖，不是漸進降級。撞上之後解碼器不會立即恢復，需重載頁面。"
+    },
+    "1080p": {
+      "totalFpsRange": "約 1000–1300 fps",
+      "perStreamAt20": 59.5,
+      "cliffAt": null,
+      "comment": "測到 20 路仍無懸崖"
+    },
+    "uiProbeCap": "UI 的探測按鈕上限為 12 路。全部通過時訊息會標示『至少 N 路（已達測試上限）』，不可誤讀為硬體上限。"
+  },
+  "conclusions": {
+    "architectureViable": true,
+    "recommendedGridLimit4k": 8,
+    "recommendedGridLimit1080p": 16,
+    "bottleneck": "解碼，佔約 90% 的每格時間；合成只佔 1–2%",
+    "validatedWithRealAssets": true
+  },
+  "bugsFoundByRealAssets": [
+    {
+      "bug": "demux 依 presentation order 重排樣本",
+      "symptom": "含 B-frame 的檔案畫面碎成 macroblock 雜訊；has_b_frames=0 的檔案完全正常",
+      "cause": "VideoDecoder 需要 decode order，presentation order 會讓 B-frame 早於其參考影格送入",
+      "fix": "移除排序，維持 mp4box 的 decode order；presentation order 改在輸出端（#insertFrame）處理",
+      "note": "合成測試素材同樣有 B-frame 卻沒暴露此問題，僅靠自動化數據無法發現，必須看畫面"
+    },
+    {
+      "bug": "seek 只等第一格解出就回報完成",
+      "symptom": "只有 1 個 keyframe 的檔案不論 seek 到哪裡都停在片頭，且不報錯",
+      "cause": "#waitForFirstFrame 在任何影格抵達時就返回，未解到目標時間",
+      "fix": "改為 #decodeUntil(target)：持續解碼並釋放早於目標的影格，直到緩衝涵蓋目標；檔尾補 flush() 取出 B-frame 重排扣住的影格",
+      "note": "AI 生成與匯出的片段常常只有 1 個 keyframe，這是實務上的高頻情境"
+    },
+    {
+      "bug": "時鐘可以跳躍，但沒有人通知 FrameSource 重新 seek",
+      "symptom": "逐幀倒退按了沒反應，之後再前進畫面會凍住直到播放頭超過原本停下的那一格；播放到結尾後 loop 繞回 0 也會凍住",
+      "cause": "MasterClock 與 FrameSource 刻意解耦（時基不依賴容器），但缺少橋接層。往回跳時需要的影格早已被 advanceTo 釋放，frameAt 找不到就回傳緩衝中最早的一格",
+      "fix": "在繪製迴圈加入 needsResync/resyncTo：依『需要的時間點是否落在緩衝範圍內』判斷，而非猜測使用者操作。同時 advanceTo 保留播放頭之前 4 格歷史，讓小幅逐幀來回直接命中緩衝，不必 seek",
+      "note": "這是 spike 的架構缺口，不是單點 bug。Phase 1 應把這層獨立成 playback controller"
+    },
+    {
+      "bug": "resync 進行中畫面會閃到不相干的影格",
+      "symptom": "逐幀退超過保留範圍時，畫面短暫跳到片頭附近的某一格",
+      "cause": "seek 進行中緩衝只剩重新解碼的起點附近，frameAt 仍回傳『最新且早於 t 的影格』，該影格技術上存在但內容完全不相干",
+      "fix": "frameAt 加入 0.5 秒的容許距離，超過即回傳 null；呼叫端沿用上一次的貼圖與描述，畫面停住而非亂跳"
+    },
+    {
+      "bug": "分割線位置 0~1 掃不完整個畫面",
+      "symptom": "16:9 素材的分割線只能移動到中間約 56% 的範圍",
+      "cause": "shader 把 centered.x 乘上長寬比做等比補正，但位移項 (uSplitPos - 0.5) 沒有跟著換算到同一尺度",
+      "fix": "以 halfExtent = |cos|·(aspect/2) + |sin|·0.5 作為分割線的實際移動半徑，位移改為 (uSplitPos·2 - 1)·halfExtent。0 與 1 現在對應到畫面兩端，任意角度皆成立"
+    },
+    {
+      "bug": "分割線只能用側欄數值調整",
+      "symptom": "比對時視線在畫面上，手卻要跑到側欄拉滑桿",
+      "fix": "分割線改為可直接在畫面上拖曳（靠近線 14px 內按下即抓住，離線則為平移），按住 Alt 拖曳為旋轉。同時在 shader 畫出可見的分割線，否則抓不到也看不出角度",
+      "note": "旋轉時 splitAngle 是法線方向，但使用者直覺是『線跟著游標指』，所以換算需加 90 度"
+    },
+    {
+      "bug": "量測時互動繪製迴圈與 benchmark 同時操作同一批 FrameSource",
+      "symptom": "潛在的量測誤差：rAF 迴圈依時鐘當前時間呼叫 advanceTo，可能釋放掉 benchmark 正要用的影格，甚至觸發不該發生的 resync",
+      "fix": "benchmark 期間暫停互動繪製迴圈",
+      "note": "本次環境的 rAF 被降頻到 3.3/秒，影響不明顯，但在正常 60fps 下會造成真實誤差"
+    },
+    {
+      "bug": "旋轉分割線時線會同時滑走",
+      "symptom": "旋轉手感不可預期，線不會停在原本抓住的位置",
+      "cause": "splitPos 是『離畫面中心的距離』，角度一變同樣的距離就落在別的位置",
+      "fix": "改為繞支點旋轉：支點取分割線上離畫面中心最近的那一點，轉完後重算 splitPos 讓線仍通過該點。支點只在互動當下計算，不進入儲存參數，keyframe 不受影響。同時在 shader 畫出支點圓環"
+    },
+    {
+      "bug": "seek 進行中會把途中解到的影格畫出來",
+      "symptom": "4K 素材往回 seek 時畫面閃爍一下，看起來像快轉過最後半秒",
+      "cause": "seek 從 keyframe 一路解到目標，途中影格只要落在 frameAt 的 0.5 秒容許距離內就會被顯示。單 keyframe 的 4K 素材要解過大量影格，因此最明顯",
+      "fix": "FrameSourceStats 新增 seeking 旗標；任一軌 seek 中就兩軌都沿用上一格。兩軌一起凍住是必要的 —— 兩邊 seek 不會同時完成，先到的若先更新，分割線兩側會短暫錯開",
+      "verification": "5.0s → 1.0s 的倒退 seek 期間取樣 42 次，畫面上只出現過 5.0 與 1.0 兩個影格，無中途影格洩漏",
+      "note": "使用者推測是『mp4 格式不利於倒退』。方向對一半：往回需要從 keyframe 重解是所有 inter-frame 編碼的共同性質，與容器格式無關；但閃爍本身是本工具的缺陷，並非格式限制"
+    }
+  ],
+  "realAssetAlignmentCheck": {
+    "pair": "be_mokey_before.mp4 vs be_mokey_before_DLSS5_0.5.mp4",
+    "question": "使用者回報兩者對不上，懷疑是重新壓縮造成",
+    "containerCheck": "PTS 逐格比對完全相同，皆 230 格 / 7.68s / 30fps / start_time 0",
+    "temporalScan": "PSNR 在 0 格位移最高（32.73 dB），+1 格 27.84、+2 格 25.11",
+    "spatialScan": "PSNR 在 0 px 最高（35.39 dB），±1px 對稱降至約 33.5、+2px 31.20",
+    "conclusion": "時間與空間皆正確對齊，無次像素偏移。殘差 35.4 dB 是 DLSS 重建的真實內容差異，正是工具應顯示的東西。重新壓縮改變像素值而非影格時間，不會造成時間偏移。",
+    "ffmpegPitfall": "crop 濾鏡在 yuv420p 下會把 x/y 偏移向下取整到偶數（色度對齊），奇數位移會被吃掉而量出與對齊完全相同的數字。必須先 format=yuv444p 再裁切。"
+  }
+}
