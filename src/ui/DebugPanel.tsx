@@ -35,7 +35,7 @@ export function DebugPanel() {
 
 function DebugBody() {
   const hasSource = slots.value.some((s) => s !== null)
-  const hasVideo = slots.value.some((s) => s !== null && isVideo(s.file))
+  const hasVideo = slots.value.some((s) => s !== null && isVideo(s.bytes))
   const working = busy.value
 
   return (

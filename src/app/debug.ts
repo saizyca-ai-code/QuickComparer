@@ -321,8 +321,8 @@ export async function runBenchmark(
 }
 
 export async function runProbe(): Promise<void> {
-  const file = slots.value.find((s) => s !== null && isVideo(s.file))?.file
-  if (!file) return
+  const bytes = slots.value.find((s) => s !== null && isVideo(s.bytes))?.bytes
+  if (!bytes) return
 
   const clock = playback.clock
   const wasPlaying = clock.playing
@@ -332,7 +332,7 @@ export async function runProbe(): Promise<void> {
   log('開始並行解碼探測（每輪 2 秒）…')
 
   try {
-    const results = await probeDecoderConcurrency(file, {
+    const results = await probeDecoderConcurrency(bytes, {
       maxStreams: PROBE_MAX_STREAMS,
       durationMs: 2000,
       onProgress: (r) => {
@@ -354,7 +354,7 @@ export async function runProbe(): Promise<void> {
         ? '探測完成：連 1 路都無法即時解碼'
         : hitCap
           ? `探測完成：至少 ${lastGood.streams} 路可即時解碼（已達測試上限，實際上限更高）`
-          : `探測完成：此環境可即時解 ${lastGood.streams} 路 ${file.name}，再多會掉幀`,
+          : `探測完成：此環境可即時解 ${lastGood.streams} 路 ${bytes.name}，再多會掉幀`,
     )
   } catch (e) {
     log(`探測失敗：${e instanceof Error ? e.message : String(e)}`)

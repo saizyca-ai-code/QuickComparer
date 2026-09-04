@@ -16,6 +16,7 @@ import {
   type FrameSourceStats,
   type SourceFrame,
 } from './FrameSource'
+import type { ByteSource } from './ByteSource'
 
 /** 預讀深度（影格數）。太淺會來不及供片，太深會吃滿 VRAM —— Phase 0 要量的就是這個平衡點。 */
 const DEFAULT_LOOKAHEAD = 16
@@ -56,7 +57,7 @@ export interface Mp4FrameSourceOptions {
 }
 
 export class Mp4FrameSource implements FrameSource {
-  #file: File
+  #source: ByteSource
   #options: Mp4FrameSourceOptions
   #demuxed: DemuxResult | null = null
   #decoder: VideoDecoder | null = null
@@ -76,8 +77,8 @@ export class Mp4FrameSource implements FrameSource {
   /** seek 進行中。期間不供片，避免中途影格被畫出來造成閃爍。 */
   #seeking = false
 
-  constructor(file: File, options: Mp4FrameSourceOptions = {}) {
-    this.#file = file
+  constructor(source: ByteSource, options: Mp4FrameSourceOptions = {}) {
+    this.#source = source
     this.#options = options
   }
 
@@ -87,7 +88,7 @@ export class Mp4FrameSource implements FrameSource {
   }
 
   async open(): Promise<void> {
-    const demuxed = await demuxMp4(this.#file)
+    const demuxed = await demuxMp4(this.#source)
     this.#demuxed = demuxed
 
     const support = await VideoDecoder.isConfigSupported(demuxed.config)

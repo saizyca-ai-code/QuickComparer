@@ -8,6 +8,7 @@
 
 import { demuxMp4, type DemuxResult } from './demux'
 import { yieldToEventLoop } from './scheduling'
+import type { ByteSource } from './ByteSource'
 
 export interface ProbeResult {
   streams: number
@@ -35,13 +36,13 @@ export interface ProbeOptions {
  * （多路不同素材同時解碼）。解出的影格立刻 close，測的是純解碼吞吐量。
  */
 export async function probeDecoderConcurrency(
-  file: File,
+  source: ByteSource,
   options: ProbeOptions = {},
 ): Promise<ProbeResult[]> {
   const maxStreams = options.maxStreams ?? 8
   const durationMs = options.durationMs ?? 2000
 
-  const demuxed = await demuxMp4(file)
+  const demuxed = await demuxMp4(source)
   const results: ProbeResult[] = []
 
   for (let streams = 1; streams <= maxStreams; streams += 1) {
