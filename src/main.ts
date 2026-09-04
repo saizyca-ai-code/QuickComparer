@@ -9,8 +9,9 @@
  */
 
 import { ImageFrameSource } from './core/ImageFrameSource'
-import { MasterClock } from './core/MasterClock'
 import { Mp4FrameSource } from './core/Mp4FrameSource'
+import { PlaybackController, type PlaybackSnapshot } from './core/PlaybackController'
+import type { MasterClock } from './core/MasterClock'
 import { probeDecoderConcurrency, type ProbeResult } from './core/decoderProbe'
 import { yieldToEventLoop } from './core/scheduling'
 import type { FrameSource } from './core/FrameSource'
@@ -36,18 +37,22 @@ const canvas = $<HTMLCanvasElement>('canvas')
 const logEl = $('log')
 
 const compositor = new Compositor(canvas)
-const clock = new MasterClock()
+const playback = new PlaybackController()
+const clock = playback.clock
 const frameTimer = new FrameTimer()
 const seekRecorder = new SeekRecorder()
 const heapMonitor = new HeapMonitor()
 
 const params: RenderParams = { ...DEFAULT_RENDER_PARAMS, pan: { ...DEFAULT_RENDER_PARAMS.pan } }
 
-/** 兩個來源槽位。第一個拖進來的是 A。 */
-const sources: [FrameSource | null, FrameSource | null] = [null, null]
+/**
+ * 兩個來源槽位的唯讀視角。第一個拖進來的是 A。
+ *
+ * 擁有權在 PlaybackController，這裡只是讀取用的別名 —— 換片一律走
+ * playback.setSource()，否則時鐘長度不會跟著更新。
+ */
+const sources = playback.sources
 const sourceFiles: [File | null, File | null] = [null, null]
-/** 上一幀各槽位實際上傳的影格 timestamp，用來偵測 A/B 是否錯開。 */
-const lastUploaded: [number | null, number | null] = [null, null]
 /**
  * 各槽位最後一次成功上傳的來源描述。
  *
@@ -72,9 +77,7 @@ function isVideo(file: File): boolean {
 }
 
 async function loadFile(slot: 0 | 1, file: File): Promise<void> {
-  sources[slot]?.close()
-  sources[slot] = null
-  lastUploaded[slot] = null
+  playback.setSource(slot, null)
   lastDescriptor[slot] = null
 
   const source: FrameSource = isVideo(file)
@@ -88,7 +91,7 @@ async function loadFile(slot: 0 | 1, file: File): Promise<void> {
     return
   }
 
-  sources[slot] = source
+  playback.setSource(slot, source)
   sourceFiles[slot] = file
 
   const info = source.info
@@ -106,18 +109,8 @@ async function loadFile(slot: 0 | 1, file: File): Promise<void> {
     log(`　⚠ ${slot === 0 ? 'A' : 'B'} 是 HDR 素材（${info.colorSpace.transfer}），目前範圍外`)
   }
 
-  syncDuration()
   refreshSourceInfo()
   refreshEnabled()
-}
-
-/** 時鐘長度取兩軌較長者。長度不一致的偵測與處理工具是 Phase 4 的工作。 */
-function syncDuration(): void {
-  let duration = 0
-  for (const source of sources) {
-    if (source) duration = Math.max(duration, source.info.duration)
-  }
-  clock.duration = duration
 }
 
 async function handleFiles(files: File[]): Promise<void> {
@@ -159,7 +152,7 @@ function transferOf(source: FrameSource): TransferFunction {
  */
 function fillSingleSource(
   descriptors: [SourceDescriptor | null, SourceDescriptor | null],
-  t: number,
+  snapshot: PlaybackSnapshot,
 ): [SourceDescriptor, SourceDescriptor] | null {
   const a = descriptors[0]
   const b = descriptors[1]
@@ -167,14 +160,16 @@ function fillSingleSource(
 
   const presentSlot: 0 | 1 = a ? 0 : 1
   const present = a ?? b
-  const source = sources[presentSlot]
-  if (!present || !source) return null
+  if (!present) return null
 
-  const sf = source.frameAt(t)
-  if (!sf) return null
-
-  const emptySlot: 0 | 1 = presentSlot === 0 ? 1 : 0
-  compositor.uploadFrame(emptySlot, sf.frame)
+  // 鏡射的那一側只在有新影格時才更新貼圖。seek 期間 frames 是 null，
+  // 兩側就一起停在上一格 —— 若這裡自己去 frameAt 取，被凍住的那側會對上
+  // 一個還在往目標解的中途影格，分割線兩邊就錯開了。
+  const sf = snapshot.frames[presentSlot]
+  if (sf) {
+    const emptySlot: 0 | 1 = presentSlot === 0 ? 1 : 0
+    compositor.uploadFrame(emptySlot, sf.frame)
+  }
   return [present, present]
 }
 
@@ -208,16 +203,6 @@ function resizeCanvas(): void {
 }
 
 /**
- * 播放頭跳到緩衝之外多遠才判定為「跳躍」而非「缺格」。
- *
- * 往前小幅超出 bufferedUntil 是解碼跟不上，等它補上就好，重新 seek 只會更慢。
- * 超過這個距離才視為使用者真的跳到別的地方。
- */
-const FORWARD_JUMP_THRESHOLD = 1.0
-
-let resyncing = false
-
-/**
  * benchmark 進行中暫停互動繪製迴圈。
  *
  * 兩者會操作同一批 FrameSource：rAF 迴圈依「時鐘的當前時間」呼叫 advanceTo，
@@ -225,43 +210,6 @@ let resyncing = false
  * 影格，甚至觸發不該發生的 resync，量出來的數字就不是純粹的解碼與合成成本。
  */
 let interactiveLoopPaused = false
-
-/**
- * 時鐘與來源之間的橋接。
- *
- * MasterClock 刻意不知道任何來源的存在（D001 的時基解耦），但這帶來一個缺口：
- * 時鐘可以瞬間跳到任何位置 —— 逐幀倒退、loop 繞回 0、拖動 timeline ——
- * 而來源的緩衝只涵蓋播放頭附近。沒有人負責在跳躍發生時重新 seek 的話，
- * 畫面會停在舊的那一格，而且不報錯。
- *
- * 這個函式就是那個橋。判斷依據是「需要的時間點在不在緩衝範圍內」，
- * 而不是去猜使用者做了什麼操作。
- */
-function needsResync(t: number): boolean {
-  for (const source of sources) {
-    if (!source) continue
-    const st = source.stats()
-    // 往回退到已釋放的影格之前。
-    if (t < st.bufferedFrom) return true
-    // 往前跳得太遠，等解碼追上不切實際。
-    if (t > st.bufferedUntil + FORWARD_JUMP_THRESHOLD) return true
-  }
-  return false
-}
-
-async function resyncTo(t: number): Promise<void> {
-  if (resyncing) return
-  resyncing = true
-  try {
-    await Promise.all(
-      sources.filter((s): s is FrameSource => s !== null).map((s) => s.seek(t)),
-    )
-  } catch (e) {
-    log(`重新對位失敗：${e instanceof Error ? e.message : String(e)}`)
-  } finally {
-    resyncing = false
-  }
-}
 
 /**
  * 互動繪製迴圈。
@@ -275,14 +223,11 @@ function render(): void {
     return
   }
 
-  clock.tick()
-
-  // 尚未載入任何素材時只是沒東西可畫，迴圈仍必須繼續轉，
-  // 否則之後拖進來的檔案永遠不會被繪製。
-  if (sources[0] !== null || sources[1] !== null) {
-    const t = clock.currentTime
-    if (!resyncing && needsResync(t)) void resyncTo(t)
-    renderAt(t)
+  // 時鐘無論如何都要走。尚未載入任何素材時只是沒東西可畫，
+  // 迴圈仍必須繼續轉，否則之後拖進來的檔案永遠不會被繪製。
+  const snapshot = playback.update()
+  if (playback.hasSource) {
+    renderSnapshot(snapshot)
     frameTimer.mark()
   }
 
@@ -347,8 +292,7 @@ function refreshPerfStats(): void {
   const p95 = frameTimer.p95
 
   // A/B 錯開一幀以上就是同步出問題，這是 T001 最關鍵的一項。
-  const tsA = lastUploaded[0]
-  const tsB = lastUploaded[1]
+  const [tsA, tsB] = playback.lastTimestamps
   let syncText = '—'
   let syncClass = ''
   if (tsA !== null && tsB !== null) {
@@ -441,8 +385,7 @@ async function runSeekTest(): Promise<void> {
   const targets = [0.1, 0.5, 0.9, 0.25, 0.75, 0.05, 0.6].map((r) => r * duration)
   for (const target of targets) {
     const latency = await seekRecorder.measure(target, async () => {
-      clock.setTime(target)
-      await Promise.all(sources.filter((s): s is FrameSource => s !== null).map((s) => s.seek(target)))
+      await playback.seekTo(target)
     })
     log(`　seek → ${target.toFixed(2)}s：${latency.toFixed(0)} ms`)
   }
@@ -591,7 +534,7 @@ async function runBenchmark(
   const primary = a ?? b
   if (!primary) return null
 
-  const active = [a, b].filter((s): s is FrameSource => s !== null)
+  const active = playback.activeSources()
   const wasPlaying = clock.playing
   clock.pause()
   interactiveLoopPaused = true
@@ -613,7 +556,7 @@ async function runBenchmark(
   // 計時要等暖機結束才開，否則第一批查詢會帶著十幾毫秒的初始化成本進統計，
   // 讓平均值被單一離群值拉高到比 p95 還大。
   for (let i = 0; i < 8; i += 1) renderAt(i * step)
-  await Promise.all(active.map((s) => s.seek(0)))
+  await playback.seekTo(0)
   compositor.gpuTimer.reset()
   compositor.setTimingEnabled(true)
 
@@ -630,12 +573,12 @@ async function runBenchmark(
     // 等到兩軌都備妥這個時間點的影格。
     const waitStart = performance.now()
     let timedOut = false
-    while (!allReadyAt(active, t)) {
+    while (!playback.readyAt(t)) {
       if (performance.now() - waitStart > FRAME_WAIT_TIMEOUT_MS) {
         timedOut = true
         break
       }
-      for (const s of active) s.advanceTo(t)
+      playback.advanceTo(t)
       await yieldToEventLoop()
     }
     const waited = performance.now() - waitStart
@@ -655,7 +598,7 @@ async function runBenchmark(
     t += step
     if (t >= primary.info.duration) {
       t = 0
-      await Promise.all(active.map((s) => s.seek(0)))
+      await playback.seekTo(0)
     }
 
     await yieldToEventLoop()
@@ -720,52 +663,29 @@ async function runBenchmark(
   return result
 }
 
-/** 兩軌是否都已備妥時間 t 的影格。 */
-function allReadyAt(active: FrameSource[], t: number): boolean {
-  for (const source of active) {
-    if (source.stats().bufferedUntil < t) return false
-  }
-  return true
-}
-
-/** 在指定時間繪製一格，回傳這一格的供片狀況。benchmark 與互動迴圈共用同一條路徑。 */
-function renderAt(t: number): { starved: boolean; bufferedBytes: number } {
+/**
+ * 把一次取格結果畫出來。
+ *
+ * 取哪一格是 PlaybackController 的決定（含 seek 期間兩軌一起凍結）；
+ * 這裡只負責上傳貼圖與合成。沒有新影格的槽位沿用上一次的貼圖與描述，
+ * 畫面停在上一格 —— 不是黑掉，也不是跳到別的時間點。
+ */
+function renderSnapshot(snapshot: PlaybackSnapshot): PlaybackSnapshot {
   resizeCanvas()
 
   const descriptors: [SourceDescriptor | null, SourceDescriptor | null] = [null, null]
-  let starved = false
-  let bufferedBytes = 0
-
-  // 任一軌正在 seek 就兩軌都凍住。
-  //
-  // 兩個理由。其一，seek 期間解碼器從 keyframe 一路往目標解，途中經過的影格是
-  // 真的，畫出來就變成「快轉過去」的閃爍 —— 單 keyframe 的 4K 素材最明顯。
-  // 其二，兩軌的 seek 不會同時完成，先到的那軌若先更新，A/B 會短暫錯開，
-  // 分割線兩側就對不上了。
-  const anySeeking = sources.some((s) => s !== null && s.stats().seeking)
 
   for (const slot of [0, 1] as const) {
     const source = sources[slot]
     if (!source) continue
 
-    source.advanceTo(t)
-    const sf = anySeeking ? null : source.frameAt(t)
-    bufferedBytes += source.stats().estimatedBytes
-
+    const sf = snapshot.frames[slot]
     if (!sf) {
-      // 沒有可用影格：保留上一次上傳的貼圖與描述，畫面停住。
-      starved = true
       descriptors[slot] = lastDescriptor[slot]
       continue
     }
-    // 解碼跟不上時 frameAt 會回傳舊的那一格，畫面等於卡住。
-    if (lastUploaded[slot] !== null && sf.timestamp === lastUploaded[slot] && t > sf.timestamp) {
-      const frameDuration = 1 / (source.info.frameRate || 30)
-      if (t - sf.timestamp > frameDuration * 1.5) starved = true
-    }
 
     compositor.uploadFrame(slot, sf.frame)
-    lastUploaded[slot] = sf.timestamp
     const descriptor: SourceDescriptor = {
       width: sf.frame.displayWidth,
       height: sf.frame.displayHeight,
@@ -775,10 +695,15 @@ function renderAt(t: number): { starved: boolean; bufferedBytes: number } {
     lastDescriptor[slot] = descriptor
   }
 
-  const pair = fillSingleSource(descriptors, t)
+  const pair = fillSingleSource(descriptors, snapshot)
   if (pair) compositor.render(pair, params)
 
-  return { starved, bufferedBytes }
+  return snapshot
+}
+
+/** 在指定時間取一格並畫出來，不推進時鐘。量測與離線渲染用。 */
+function renderAt(t: number): PlaybackSnapshot {
+  return renderSnapshot(playback.sampleAt(t))
 }
 
 async function runProbe(): Promise<void> {
@@ -896,21 +821,8 @@ document.addEventListener('drop', (e) => {
 })
 
 $('playBtn').addEventListener('click', () => clock.toggle())
-$('stepBack').addEventListener('click', () => stepFrames(-1))
-$('stepFwd').addEventListener('click', () => stepFrames(1))
-
-/**
- * 逐幀步進。
- *
- * 只設定時鐘，實際的補位交給 render 迴圈的 needsResync —— 往前一格通常直接命中
- * 緩衝，往回一格則命中 advanceTo 保留的歷史格，兩種情況都不需要 seek。
- * 只有退超過保留範圍時才會觸發真正的 seek。
- */
-function stepFrames(n: number): void {
-  clock.pause()
-  const fps = sources[0]?.info.frameRate ?? sources[1]?.info.frameRate ?? 30
-  clock.step(n, fps)
-}
+$('stepBack').addEventListener('click', () => playback.step(-1))
+$('stepFwd').addEventListener('click', () => playback.step(1))
 
 const scrub = $<HTMLInputElement>('scrub')
 scrub.addEventListener('pointerdown', () => {
@@ -923,15 +835,12 @@ scrub.addEventListener('input', () => {
   const duration = clock.duration
   if (duration <= 0) return
   const target = (Number(scrub.value) / 1000) * duration
-  clock.setTime(target)
+  playback.scrubTo(target)
   // 拖動時不逐格 seek 解碼器 —— 那會讓拖動變成一連串 flush。
   // 放開後才對齊，這也是 Phase 2 要做的 scrub 策略雛形。
 })
 scrub.addEventListener('change', () => {
-  const target = clock.currentTime
-  void Promise.all(
-    sources.filter((s): s is FrameSource => s !== null).map((s) => s.seek(target)),
-  )
+  void playback.commitScrub()
 })
 
 $<HTMLSelectElement>('layout').addEventListener('change', (e) => {
@@ -1194,11 +1103,11 @@ document.addEventListener('keydown', (e) => {
       break
     case 'ArrowLeft':
       e.preventDefault()
-      stepFrames(-1)
+      playback.step(-1)
       break
     case 'ArrowRight':
       e.preventDefault()
-      stepFrames(1)
+      playback.step(1)
       break
     case 's':
     case 'S':
@@ -1223,6 +1132,8 @@ interface DebugHook {
   seekAll(t: number): Promise<void>
   params: RenderParams
   clock: MasterClock
+  /** 直接驅動一格（推進時鐘 → 重新對位判斷 → 取格 → 繪製），繞過 rAF。 */
+  tick(): { time: number; shown: [number | null, number | null]; seeking: boolean; starved: boolean }
   runSeekTest(): Promise<void>
   runPassthroughTest(): void
   runProbe(): Promise<void>
@@ -1243,14 +1154,20 @@ const debugHook: DebugHook = {
     $('dropHint').classList.add('hidden')
   },
   async seekAll(t) {
-    clock.setTime(t)
-    await Promise.all(
-      sources.filter((s): s is FrameSource => s !== null).map((s) => s.seek(t)),
-    )
+    await playback.seekTo(t)
     renderAt(t)
   },
   params,
   clock,
+  tick: () => {
+    const snap = renderSnapshot(playback.update())
+    return {
+      time: snap.time,
+      shown: [snap.frames[0]?.timestamp ?? null, snap.frames[1]?.timestamp ?? null],
+      seeking: snap.seeking,
+      starved: snap.starved,
+    }
+  },
   runSeekTest,
   runPassthroughTest,
   runProbe,
@@ -1262,7 +1179,7 @@ const debugHook: DebugHook = {
     capabilities: compositor.capabilities,
     sources: sources.map((s) => (s ? s.info : null)),
     stats: sources.map((s) => s?.stats() ?? null),
-    lastUploaded: [...lastUploaded],
+    lastTimestamps: [...playback.lastTimestamps],
     seek: { meanMs: seekRecorder.mean, worstMs: seekRecorder.worst },
     heapGrowthPerMinute: heapMonitor.growthPerMinute,
     passthrough: passthroughResult,
