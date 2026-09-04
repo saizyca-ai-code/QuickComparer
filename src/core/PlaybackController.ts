@@ -32,6 +32,14 @@ const FORWARD_JUMP_THRESHOLD = 1.0
 /** 沒有素材時的預設步進速率。 */
 const FALLBACK_FPS = 30
 
+/**
+ * 判斷「同一個位置」的容許誤差（秒）。
+ *
+ * 逐幀步進最小的一步是 1/60 秒，遠大於這個值，所以它只會把「播放頭完全沒動」
+ * 認定為同一個位置。
+ */
+const SAME_POSITION_EPSILON = 1e-6
+
 /** 某個時間點上兩軌的供片結果。 */
 export interface PlaybackSnapshot {
   /** 這次取樣的時間（秒）。 */
@@ -63,6 +71,17 @@ export class PlaybackController {
   /** 上一格各槽位實際取用的影格 timestamp，用來分辨「畫面沒動」與「解碼跟不上」。 */
   #lastTimestamp: [number | null, number | null] = [null, null]
   #resyncing = false
+  /**
+   * 上一次發動重新對位的位置。用來擋掉對同一個位置的重複 seek。
+   *
+   * 沒有這道防線會變成無限迴圈：素材的首格不一定落在 0.000s（B 軌常有位移），
+   * 此時 t=0 永遠早於「緩衝中最早的影格」，needsResync 恆真，而 seek 到 0 拿回來的
+   * 還是同一格 —— 於是每個 rAF frame 都重來一次，每次 seek 開頭又把緩衝清空，
+   * 結果是永遠停在 seek 中、畫面全黑。實測拖放後 2.5 秒內發了 171 次 seek。
+   *
+   * 對位成功（needsResync 轉為 false）就清掉，不影響之後真正需要的重新對位。
+   */
+  #resyncedAt: number | null = null
 
   /** 重新對位失敗時的回報管道。失敗多半代表素材本身有問題，不該無聲吞掉。 */
   onError: ((message: string) => void) | null = null
@@ -109,6 +128,7 @@ export class PlaybackController {
     this.#sources[slot]?.close()
     this.#sources[slot] = source
     this.#lastTimestamp[slot] = null
+    this.#resyncedAt = null
 
     let duration = 0
     for (const s of this.#sources) {
@@ -161,6 +181,7 @@ export class PlaybackController {
   /** 跳轉：設定時鐘並讓兩軌都解到該處。 */
   async seekTo(t: number): Promise<void> {
     this.clock.setTime(t)
+    this.#resyncedAt = null
     await this.#seekSources(this.clock.currentTime)
   }
 
@@ -176,7 +197,20 @@ export class PlaybackController {
   update(): PlaybackSnapshot {
     this.clock.tick()
     const t = this.clock.currentTime
-    if (!this.#resyncing && this.#needsResync(t)) void this.#resyncTo(t)
+
+    if (!this.#resyncing) {
+      if (!this.#needsResync(t)) {
+        this.#resyncedAt = null
+      } else if (
+        this.#resyncedAt === null ||
+        Math.abs(t - this.#resyncedAt) > SAME_POSITION_EPSILON
+      ) {
+        // 記在發動之前：這次若沒能解決，同一個位置就不再重試。
+        this.#resyncedAt = t
+        void this.#resyncTo(t)
+      }
+    }
+
     return this.sampleAt(t)
   }
 
