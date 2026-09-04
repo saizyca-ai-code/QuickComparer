@@ -8,3 +8,7 @@ dist/
 # Local test media (never commit)
 testdata/
 test_assets/
+
+# 後端：虛擬環境與執行期資料不進版控
+server/.venv/
+server/data/

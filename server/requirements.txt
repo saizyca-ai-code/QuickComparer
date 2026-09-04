@@ -1,0 +1,3 @@
+# T003 的 runtime 直接需求。Phase 7 轉可搬移形式時，由這份產生 requirements.lock。
+fastapi==0.121.2
+uvicorn==0.41.0
