@@ -1,0 +1,245 @@
+:root {
+  color-scheme: dark;
+  --bg: #14161a;
+  --panel: #1c1f26;
+  --panel-2: #232732;
+  --line: #333846;
+  --text: #e4e7ee;
+  --dim: #949bad;
+  --accent: #5aa9ff;
+  --ok: #4ec98a;
+  --warn: #e8b84b;
+  --bad: #e8695f;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  overflow: hidden;
+}
+
+/* body 是兩欄 grid，掛載點不該多插一層 box。 */
+#app { display: contents; }
+
+main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+#stage {
+  flex: 1;
+  position: relative;
+  background: #0c0d10;
+  min-height: 0;
+}
+
+#stage canvas { width: 100%; height: 100%; display: block; }
+
+#stage.dragging { outline: 2px dashed var(--accent); outline-offset: -8px; }
+
+#dropHint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+  color: var(--dim);
+  text-align: center;
+  padding: 24px;
+}
+#dropHint strong { color: var(--text); font-size: 15px; }
+code {
+  background: var(--panel-2);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent);
+}
+
+/* switch 模式下標出目前看的是哪一邊。兩張畫面很像時，沒有標示會不知道在看什麼。 */
+#sideBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(12, 13, 16, 0.78);
+  border: 1px solid var(--line);
+  pointer-events: none;
+  max-width: 60%;
+}
+#sideBadge strong { color: var(--accent); font-size: 14px; }
+#sideBadge span {
+  color: var(--dim);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#transport {
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#transport button { width: auto; padding: 4px 10px; }
+#transport button.wide { padding: 4px 14px; }
+
+#sideToggle { display: flex; gap: 2px; }
+#sideToggle button { min-width: 30px; }
+#sideToggle button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #1b2938;
+}
+
+#scrub { flex: 1; min-width: 180px; }
+#timeLabel { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 120px; }
+
+aside {
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 14px;
+}
+
+h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  margin: 18px 0 8px;
+  font-weight: 600;
+}
+h2:first-child { margin-top: 0; }
+
+.row {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.row > label { color: var(--dim); font-size: 12px; }
+
+select, input[type="range"], button {
+  width: 100%;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+}
+input[type="range"] { padding: 0; }
+button { cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+
+button.link {
+  width: auto;
+  background: none;
+  border: none;
+  color: var(--dim);
+  padding: 0;
+}
+button.link:hover:not(:disabled) { color: var(--accent); border: none; }
+button.section-toggle {
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+}
+
+.btn-row { display: flex; gap: 6px; margin-bottom: 6px; }
+
+/* 素材槽 */
+.slot {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: var(--panel-2);
+}
+.slot.empty { border-style: dashed; background: none; }
+.slot-head { display: flex; align-items: center; gap: 8px; }
+.slot-tag {
+  color: var(--accent);
+  font-weight: 600;
+  min-width: 12px;
+}
+.slot-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slot.empty .slot-name { color: var(--dim); }
+.slot-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+table.stats {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+table.stats td {
+  padding: 2px 0;
+  border-bottom: 1px solid #262a34;
+}
+table.stats td:first-child { color: var(--dim); }
+table.stats td:last-child { text-align: right; }
+
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.bad { color: var(--bad); }
+
+.hint { color: var(--dim); font-size: 11px; margin: 6px 0; }
+
+#log {
+  font-family: Consolas, monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  color: var(--dim);
+  max-height: 220px;
+  overflow-y: auto;
+  background: #16181e;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 8px;
+  margin-top: 8px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: var(--dim);
+  font-size: 12px;
+}
+.checkbox-row input { width: auto; }
