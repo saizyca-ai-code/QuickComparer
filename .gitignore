@@ -9,6 +9,8 @@ dist/
 testdata/
 test_assets/
 
-# 後端：虛擬環境與執行期資料不進版控
+# 後端：虛擬環境、執行期資料與 bytecode 不進版控
 server/.venv/
 server/data/
+__pycache__/
+*.pyc
