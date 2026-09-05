@@ -41,7 +41,22 @@ main {
   min-height: 0;
 }
 
-#stage canvas { width: 100%; height: 100%; display: block; }
+/*
+ * canvas 必須脫離文件流。
+ *
+ * 它是置換元素，backing size（canvas.width/height）會把 #stage 撐開；而
+ * height:100% 對一個由 flex 決定高度的父層是循環解析，瀏覽器會退回用固有高度。
+ * 接著繪製迴圈又把撐大後的 rect 寫回 backing —— 值只會漲不會縮，視窗一縮小
+ * 傳輸列就被推到畫面外（實測視窗高 700 時 #stage 變成 1278）。
+ * 絕對定位讓它無法回頭影響版面。
+ */
+#stage canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
 
 #stage.dragging { outline: 2px dashed var(--accent); outline-offset: -8px; }
 
