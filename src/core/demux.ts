@@ -8,6 +8,7 @@
 
 import MP4Box, { type MP4File, type MP4Info, type MP4Sample, type MP4VideoTrack } from 'mp4box'
 import { type ColorSpaceInfo } from './FrameSource'
+import type { ByteSource } from './ByteSource'
 
 export interface DemuxedSample {
   /** 秒。 */
@@ -106,7 +107,7 @@ function matrixCoefficientsName(v: number | undefined): string | null {
   }
 }
 
-export async function demuxMp4(file: File): Promise<DemuxResult> {
+export async function demuxMp4(source: ByteSource): Promise<DemuxResult> {
   const mp4 = MP4Box.createFile()
   const samples: DemuxedSample[] = []
 
@@ -122,7 +123,7 @@ export async function demuxMp4(file: File): Promise<DemuxResult> {
     }
   })
 
-  const buffer = await file.arrayBuffer()
+  const buffer = await source.readAll()
   const chunk = buffer as ArrayBuffer & { fileStart?: number }
   chunk.fileStart = 0
   mp4.appendBuffer(chunk)

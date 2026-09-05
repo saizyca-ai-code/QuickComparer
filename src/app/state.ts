@@ -13,6 +13,8 @@ import { ImageFrameSource } from '../core/ImageFrameSource'
 import { Mp4FrameSource } from '../core/Mp4FrameSource'
 import { PlaybackController } from '../core/PlaybackController'
 import type { FrameSource, FrameSourceInfo } from '../core/FrameSource'
+import { FileByteSource, HttpByteSource, type ByteSource } from '../core/ByteSource'
+import { fileUrl, type MediaEntry } from './api'
 import { DEFAULT_RENDER_PARAMS, type RenderParams } from '../gl/params'
 
 export type Slot = 0 | 1
@@ -20,8 +22,14 @@ export type Slot = 0 | 1
 /** 一個素材槽的顯示狀態。FrameSource 本身歸 PlaybackController 管。 */
 export interface SlotState {
   name: string
-  /** 原始檔案。並行解碼探測需要重新開一份，不能共用既有的解碼器。 */
-  file: File
+  /**
+   * 位元組來源。並行解碼探測需要重新開一份解碼器，不能共用既有的，
+   * 所以要留著它而不是只留 FrameSource。
+   */
+  bytes: ByteSource
+  /** 這份素材從哪來。專案資料夾來的會帶相對路徑，供之後的專案存檔引用。 */
+  origin: 'drop' | 'project'
+  relPath: string | null
   info: FrameSourceInfo
 }
 
@@ -108,37 +116,62 @@ export function stageAspect(): number | null {
   return info.width / info.height
 }
 
-export function isVideo(file: File): boolean {
-  return file.type.startsWith('video/') || /\.(mp4|m4v|mov)$/i.test(file.name)
+export function isVideo(bytes: { mimeType: string; name: string }): boolean {
+  return bytes.mimeType.startsWith('video/') || /\.(mp4|m4v|mov)$/i.test(bytes.name)
 }
 
 export function isSupported(file: File): boolean {
-  return isVideo(file) || file.type.startsWith('image/')
+  return isVideo({ mimeType: file.type, name: file.name }) || file.type.startsWith('image/')
 }
 
+/** 拖放進來的檔案。 */
 export async function loadFile(slot: Slot, file: File): Promise<void> {
+  await loadBytes(slot, new FileByteSource(file), 'drop', null)
+}
+
+/** 專案資料夾裡的素材，經本機服務以 byte-range 供應。 */
+export async function loadFromProject(slot: Slot, entry: MediaEntry): Promise<void> {
+  let bytes: HttpByteSource
+  try {
+    bytes = await HttpByteSource.open(fileUrl(entry.rel_path), {
+      name: entry.name,
+      mimeType: entry.kind === 'video' ? 'video/mp4' : 'image/*',
+    })
+  } catch (e) {
+    log(`從服務取得 ${entry.name} 失敗：${e instanceof Error ? e.message : String(e)}`)
+    return
+  }
+  await loadBytes(slot, bytes, 'project', entry.rel_path)
+}
+
+async function loadBytes(
+  slot: Slot,
+  bytes: ByteSource,
+  origin: 'drop' | 'project',
+  relPath: string | null,
+): Promise<void> {
   playback.setSource(slot, null)
   setSlot(slot, null)
 
-  const source: FrameSource = isVideo(file)
-    ? new Mp4FrameSource(file)
-    : new ImageFrameSource(file)
+  const source: FrameSource = isVideo(bytes)
+    ? new Mp4FrameSource(bytes)
+    : new ImageFrameSource(bytes)
 
   try {
     await source.open()
   } catch (e) {
-    log(`載入 ${file.name} 失敗：${e instanceof Error ? e.message : String(e)}`)
+    log(`載入 ${bytes.name} 失敗：${e instanceof Error ? e.message : String(e)}`)
     return
   }
 
   playback.setSource(slot, source)
-  setSlot(slot, { name: file.name, file, info: source.info })
+  setSlot(slot, { name: bytes.name, bytes, origin, relPath, info: source.info })
   syncClockState()
 
   const info = source.info
   const label = slot === 0 ? 'A' : 'B'
   log(
-    `${label} = ${file.name}　${info.width}×${info.height}　` +
+    `${label} = ${bytes.name}　${info.width}×${info.height}　` +
       `${info.frameRate.toFixed(2)}fps　${info.duration.toFixed(2)}s　${info.codec}`,
   )
 

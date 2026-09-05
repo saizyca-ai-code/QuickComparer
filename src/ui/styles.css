@@ -243,3 +243,53 @@ table.stats td:last-child { text-align: right; }
   font-size: 12px;
 }
 .checkbox-row input { width: auto; }
+
+/* 專案資料夾 */
+.project-path { display: flex; gap: 6px; margin-bottom: 6px; }
+.project-path input {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+}
+.project-path button { width: auto; padding: 4px 10px; }
+
+.media-list {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.media-item { border-bottom: 1px solid #262a34; padding: 4px 6px; }
+.media-item:last-child { border-bottom: none; }
+.media-head { display: flex; align-items: center; gap: 4px; }
+.media-name {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.media-head button:not(.link) { width: auto; padding: 1px 8px; font-size: 11px; }
+.media-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  margin: 4px 0 2px;
+  font-size: 11px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.slot-origin {
+  font-size: 10px;
+  color: var(--accent);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 4px;
+}

@@ -5,10 +5,12 @@ import { DEFAULT_RENDER_PARAMS } from '../gl/params'
 import type { CompareMode, Interpolation, Layout, TransferFunction } from '../gl/params'
 import { normalizedSplitDegrees } from './splitInteraction'
 import { DebugPanel } from './DebugPanel'
+import { ProjectPanel } from './ProjectPanel'
 
 export function Sidebar() {
   return (
     <aside>
+      <ProjectPanel />
       <SourceSlots />
       <CompareSection />
       <ViewSection />
@@ -48,9 +50,10 @@ function SourceSlot({ slot }: { slot: Slot }) {
     >
       <div class="slot-head">
         <span class="slot-tag">{label}</span>
-        <span class="slot-name" title={state?.name}>
+        <span class="slot-name" title={state?.relPath ?? state?.name}>
           {state?.name ?? '拖檔案到這裡'}
         </span>
+        {state?.origin === 'project' && <span class="slot-origin" title="來自專案資料夾">專案</span>}
         {state && (
           <button class="link" onClick={() => clearSlot(slot)} title="清除">
             ✕

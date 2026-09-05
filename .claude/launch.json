@@ -6,6 +6,19 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5273
+    },
+    {
+      "name": "quickcomparer-api",
+      "runtimeExecutable": "server/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m", "uvicorn", "quickcomparer.main:app",
+        "--app-dir", "server/app/src",
+        "--host", "127.0.0.1",
+        "--port", "5274",
+        "--reload",
+        "--reload-dir", "server/app/src"
+      ],
+      "port": 5274
     }
   ]
 }

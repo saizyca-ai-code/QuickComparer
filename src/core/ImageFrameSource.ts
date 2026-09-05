@@ -14,6 +14,7 @@ import {
   type FrameSourceStats,
   type SourceFrame,
 } from './FrameSource'
+import type { ByteSource } from './ByteSource'
 
 export interface ImageFrameSourceOptions {
   /** 靜態圖在時間軸上的長度（秒）。與影片同軌比對時由呼叫端指定。 */
@@ -24,14 +25,14 @@ export interface ImageFrameSourceOptions {
 const DEFAULT_DURATION = 10
 
 export class ImageFrameSource implements FrameSource {
-  #file: File
+  #source: ByteSource
   #options: ImageFrameSourceOptions
   #info: FrameSourceInfo | null = null
   /** 唯一的那一格。整個生命週期就它，不需要 ring buffer。 */
   #frame: SourceFrame | null = null
 
-  constructor(file: File, options: ImageFrameSourceOptions = {}) {
-    this.#file = file
+  constructor(source: ByteSource, options: ImageFrameSourceOptions = {}) {
+    this.#source = source
     this.#options = options
   }
 
@@ -41,7 +42,7 @@ export class ImageFrameSource implements FrameSource {
   }
 
   async open(): Promise<void> {
-    const bitmap = await createImageBitmap(this.#file)
+    const bitmap = await createImageBitmap(await this.#source.blob())
 
     // 靜態圖沒有容器色彩標記可讀。瀏覽器已經把 PNG/JPEG 解成 sRGB，
     // 所以這裡的 'assumed' 是誠實的：我們確實不知道原始意圖，只知道解出來是什麼。
@@ -55,7 +56,7 @@ export class ImageFrameSource implements FrameSource {
       duration: this.#options.duration ?? DEFAULT_DURATION,
       // 靜態圖沒有影格率。給一個標稱值讓逐幀步進仍然可用。
       frameRate: 30,
-      codec: this.#file.type || 'image',
+      codec: this.#source.mimeType || 'image',
       colorSpace,
     }
 
