@@ -224,7 +224,9 @@ export async function runBenchmark(
 
   const started = performance.now()
   let t = 0
+  let elapsed = 0
 
+  try {
   while (performance.now() - started < durationMs) {
     // 等到兩軌都備妥這個時間點的影格。
     const waitStart = performance.now()
@@ -262,7 +264,7 @@ export async function runBenchmark(
     heapMonitor.sample()
   }
 
-  const elapsed = (performance.now() - started) / 1000
+  elapsed = (performance.now() - started) / 1000
 
   // 收尾：timer query 的結果會晚幾幀才回來，多輪詢幾次把在飛的取回。
   for (let i = 0; i < 10; i += 1) {
@@ -270,10 +272,14 @@ export async function runBenchmark(
     await yieldToEventLoop()
   }
   compositor.setTimingEnabled(false)
-  renderer.lockedSize = null
-  setPaused(false)
-  busy.value = null
-  if (wasPlaying) clock.play()
+  } finally {
+    // 收尾一定要跑。少了它，一個例外就會讓畫布尺寸鎖在量測解析度、
+    // 互動迴圈永遠暫停 —— 畫面凍住而且傳輸列被撐出視窗外。
+    renderer.lockedSize = null
+    setPaused(false)
+    busy.value = null
+    if (wasPlaying) clock.play()
+  }
 
   const gpu = compositor.gpuTimer
   const fps = frames / elapsed
