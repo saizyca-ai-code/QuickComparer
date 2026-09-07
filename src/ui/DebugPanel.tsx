@@ -15,21 +15,15 @@ import {
   seekRecorder,
 } from '../app/debug'
 import { frameTimer, heapMonitor, liveStats, rendererOrNull } from '../app/loop'
-import { debugOpen, isVideo, messages, playback, slots } from '../app/state'
+import { isVideo, messages, playback, slots } from '../app/state'
+import { Section } from './Section'
 import { formatBytes } from './stats'
 
 export function DebugPanel() {
-  const open = debugOpen.value
-
   return (
-    <>
-      <h2>
-        <button class="link section-toggle" onClick={() => (debugOpen.value = !open)}>
-          {open ? '▾' : '▸'} 除錯
-        </button>
-      </h2>
-      {open && <DebugBody />}
-    </>
+    <Section title="除錯">
+      <DebugBody />
+    </Section>
   )
 }
 

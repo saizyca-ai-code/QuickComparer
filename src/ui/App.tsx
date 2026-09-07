@@ -1,7 +1,9 @@
 /**
- * 版面：左（專案工具）／中（Viewer）／右（參數），底部跨滿寬（資訊列、工具列、timeline）。
+ * 版面：Viewer 在左、面板在右，底部跨滿寬（資訊列、工具列、timeline）。
  *
- * 參考 Chaos Player 的配置。三個面板都可折疊，Viewer 可進全螢幕模式 ——
+ * 原本做成左右各一欄，實際用起來檢視區被夾得太窄 —— 比對工具的檢視區是主體，
+ * 兩側都放面板等於同時從兩邊擠它。改成全部集中在右側，內部各區塊垂直折疊。
+ *
  * 全螢幕是「隱藏面板」而不是瀏覽器的 fullscreen：比對時常要對照別的視窗，
  * 真正的全螢幕反而礙事。
  */
@@ -9,7 +11,6 @@
 import { useEffect } from 'preact/hooks'
 import { toggleSide, transport } from '../app/state'
 import { exitFullscreen, panels, toggleFullscreen, viewerFullscreen } from '../app/layout'
-import { LeftPanelContent } from './LeftPanel'
 import { RightPanelContent } from './RightPanel'
 import { SidePanel } from './Panel'
 import { BottomBar } from './BottomBar'
@@ -55,7 +56,6 @@ export function App() {
 
   const shellClass = [
     full ? 'fullscreen' : '',
-    !full && !state.left ? 'left-collapsed' : '',
     !full && !state.right ? 'right-collapsed' : '',
   ]
     .filter(Boolean)
@@ -63,12 +63,6 @@ export function App() {
 
   return (
     <div id="shell" class={shellClass || undefined}>
-      {!full && (
-        <SidePanel which="left" label="專案">
-          <LeftPanelContent />
-        </SidePanel>
-      )}
-
       <main>
         <Viewer />
         {full && (
@@ -79,7 +73,7 @@ export function App() {
       </main>
 
       {!full && (
-        <SidePanel which="right" label="參數">
+        <SidePanel which="right" label="面板">
           <RightPanelContent />
         </SidePanel>
       )}

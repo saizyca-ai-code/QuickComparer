@@ -17,17 +17,12 @@ interface Props {
 
 export function SidePanel({ which, label, children }: Props) {
   const open = panels.value[which]
-  const side = which === 'left' ? 'left' : 'right'
 
   if (!open) {
     return (
-      <div class={`panel-rail rail-${side}`}>
-        <button
-          class="link rail-toggle"
-          title={`展開${label}`}
-          onClick={() => togglePanel(which)}
-        >
-          {side === 'left' ? '▸' : '◂'}
+      <div class="panel-rail rail-right">
+        <button class="link rail-toggle" title={`展開${label}`} onClick={() => togglePanel(which)}>
+          ◂
         </button>
         <span class="rail-label">{label}</span>
       </div>
@@ -35,15 +30,11 @@ export function SidePanel({ which, label, children }: Props) {
   }
 
   return (
-    <aside class={`panel panel-${side}`}>
+    <aside class="panel panel-right">
       <div class="panel-head">
         <span>{label}</span>
-        <button
-          class="link"
-          title={`收合${label}`}
-          onClick={() => togglePanel(which)}
-        >
-          {side === 'left' ? '◂' : '▸'}
+        <button class="link" title={`收合${label}`} onClick={() => togglePanel(which)}>
+          ▸
         </button>
       </div>
       <div class="panel-body">{children}</div>

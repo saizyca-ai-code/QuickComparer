@@ -1,19 +1,89 @@
-/** 右panel：比對／檢視／色彩的參數。除錯工具在 DebugPanel。 */
+/** 右panel：專案、素材與比對／檢視／色彩的參數。各區塊可垂直折疊。 */
 
-import { params, updateParams } from '../app/state'
+import { clearSlot, loadFile, params, slots, updateParams, type Slot } from '../app/state'
 import { DEFAULT_RENDER_PARAMS } from '../gl/params'
 import type { CompareMode, Interpolation, Layout, TransferFunction } from '../gl/params'
 import { normalizedSplitDegrees } from './splitInteraction'
 import { DebugPanel } from './DebugPanel'
+import { ProjectPanel } from './ProjectPanel'
+import { Section } from './Section'
 
 export function RightPanelContent() {
   return (
     <>
-      <CompareSection />
-      <ViewSection />
-      <ColorSection />
+      <Section title="專案">
+        <ProjectPanel />
+      </Section>
+      <Section title="素材">
+        <SourceSlots />
+      </Section>
+      <Section title="比對">
+        <CompareSection />
+      </Section>
+      <Section title="檢視">
+        <ViewSection />
+      </Section>
+      <Section title="色彩">
+        <ColorSection />
+      </Section>
       <DebugPanel />
     </>
+  )
+}
+
+// ---------------------------------------------------------------- 素材
+
+function SourceSlots() {
+  return (
+    <>
+      {([0, 1] as const).map((slot) => (
+        <SourceSlot key={slot} slot={slot} />
+      ))}
+    </>
+  )
+}
+
+function SourceSlot({ slot }: { slot: Slot }) {
+  const state = slots.value[slot]
+  const label = slot === 0 ? 'A' : 'B'
+
+  return (
+    <div
+      class={`slot${state ? '' : ' empty'}`}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        const file = e.dataTransfer?.files?.[0]
+        if (file) void loadFile(slot, file)
+      }}
+    >
+      <div class="slot-head">
+        <span class="slot-tag">{label}</span>
+        <span class="slot-name" title={state?.relPath ?? state?.name}>
+          {state?.name ?? '拖檔案到這裡'}
+        </span>
+        {state?.origin === 'project' && <span class="slot-origin" title="來自專案資料夾">專案</span>}
+        {state && (
+          <button class="link" onClick={() => clearSlot(slot)} title="清除">
+            ✕
+          </button>
+        )}
+      </div>
+      {state && (
+        <div class="slot-meta">
+          <span>
+            {state.info.width}×{state.info.height}
+          </span>
+          <span>{state.info.frameRate.toFixed(2)} fps</span>
+          <span>{state.info.duration.toFixed(2)} s</span>
+          <span class={state.info.colorSpace.origin === 'container' ? 'ok' : 'warn'}>
+            {state.info.colorSpace.transfer ?? '未標記'}
+            {state.info.colorSpace.origin === 'assumed' ? '（假設）' : ''}
+          </span>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -23,7 +93,6 @@ function CompareSection() {
   const p = params.value
   return (
     <>
-      <h2>比對</h2>
       <Row label="佈局">
         <select
           value={p.layout}
@@ -91,7 +160,6 @@ function ViewSection() {
   const p = params.value
   return (
     <>
-      <h2>檢視</h2>
       <Row label="插值">
         <select
           value={p.interpolation}
@@ -144,7 +212,6 @@ function ColorSection() {
   const p = params.value
   return (
     <>
-      <h2>色彩</h2>
       <Row label="輸出">
         <select
           value={p.outputTransfer}

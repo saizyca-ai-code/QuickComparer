@@ -26,21 +26,22 @@ body {
 #app { display: contents; }
 
 /*
- * 左（專案）／中（Viewer）／右（參數），底部跨滿寬。
+ * Viewer 在左、面板在右，底部跨滿寬。
  * 面板收合時把該欄換成窄邊條，欄寬用 grid-template-columns 切換。
+ *
+ * 曾經做成左右各一欄，實際用起來檢視區被夾得太窄 —— 檢視區是這個工具的主體，
+ * 兩側都放面板等於同時從兩邊擠它。
  */
 #shell {
   height: 100vh;
   display: grid;
-  grid-template-columns: 260px 1fr 300px;
+  grid-template-columns: 1fr 320px;
   grid-template-rows: 1fr auto;
   grid-template-areas:
-    "left viewer right"
-    "bottom bottom bottom";
+    "viewer right"
+    "bottom bottom";
 }
-#shell.left-collapsed { grid-template-columns: 28px 1fr 300px; }
-#shell.right-collapsed { grid-template-columns: 260px 1fr 28px; }
-#shell.left-collapsed.right-collapsed { grid-template-columns: 28px 1fr 28px; }
+#shell.right-collapsed { grid-template-columns: 1fr 28px; }
 #shell.fullscreen {
   grid-template-columns: 1fr;
   grid-template-areas: "viewer";
@@ -100,7 +101,6 @@ main {
   flex-direction: column;
   min-width: 0;
 }
-.panel-left { grid-area: left; border-right: 1px solid var(--line); }
 .panel-right { grid-area: right; border-left: 1px solid var(--line); }
 
 .panel-head {
@@ -118,10 +118,37 @@ main {
 
 .panel-body {
   overflow-y: auto;
-  padding: 12px;
   flex: 1;
   min-height: 0;
 }
+
+/* ---------------------------------------------------------------- 區塊 */
+
+.section { border-bottom: 1px solid var(--line); }
+.section:last-child { border-bottom: none; }
+
+.section-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.section-head:hover:not(:disabled) { color: var(--text); border: none; }
+.section-caret { color: var(--dim); }
+
+.section-body { padding: 0 12px 12px; }
+.section-body > h2:first-child { margin-top: 0; }
 
 /* 收合後留一條窄邊條，不是整個消失 —— 消失了就找不回來。 */
 .panel-rail {
@@ -133,7 +160,6 @@ main {
   padding-top: 8px;
   overflow: hidden;
 }
-.rail-left { grid-area: left; border-right: 1px solid var(--line); }
 .rail-right { grid-area: right; border-left: 1px solid var(--line); }
 .rail-toggle { font-size: 12px; }
 .rail-label {

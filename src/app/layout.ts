@@ -11,29 +11,58 @@ import { signal, effect } from '@preact/signals'
 const STORAGE_KEY = 'qc.layout'
 
 export interface PanelState {
-  left: boolean
   right: boolean
   bottom: boolean
 }
 
-function load(): PanelState {
-  const fallback: PanelState = { left: true, right: true, bottom: true }
+/**
+ * 右panel 內各區塊的展開狀態。
+ *
+ * 全部擠在同一欄之後，垂直折疊就不只是整潔問題了 —— 不收起來根本捲不完。
+ * 預設把除錯收起來，那是開發用的。
+ */
+export type SectionState = Record<string, boolean>
+
+const DEFAULT_SECTIONS: SectionState = {
+  專案: true,
+  素材: true,
+  比對: true,
+  檢視: true,
+  色彩: true,
+  除錯: false,
+}
+
+interface Stored {
+  panels?: Partial<PanelState>
+  sections?: SectionState
+}
+
+function load(): Stored {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return fallback
-    const parsed = JSON.parse(raw) as Partial<PanelState>
-    return {
-      left: parsed.left ?? fallback.left,
-      right: parsed.right ?? fallback.right,
-      bottom: parsed.bottom ?? fallback.bottom,
-    }
+    return raw ? (JSON.parse(raw) as Stored) : {}
   } catch {
-    return fallback
+    return {}
   }
 }
 
+const stored = load()
+
 /** 各面板是否展開。 */
-export const panels = signal<PanelState>(load())
+export const panels = signal<PanelState>({
+  right: stored.panels?.right ?? true,
+  bottom: stored.panels?.bottom ?? true,
+})
+
+export const sections = signal<SectionState>({ ...DEFAULT_SECTIONS, ...stored.sections })
+
+export function toggleSection(name: string): void {
+  sections.value = { ...sections.value, [name]: !isSectionOpen(name) }
+}
+
+export function isSectionOpen(name: string): boolean {
+  return sections.value[name] ?? true
+}
 
 /**
  * 全螢幕檢視：隱藏三個面板，不呼叫瀏覽器的 fullscreen。
@@ -55,9 +84,9 @@ export function exitFullscreen(): void {
 }
 
 effect(() => {
-  const state = panels.value
+  const payload: Stored = { panels: panels.value, sections: sections.value }
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
   } catch {
     // 存不了就算了，版面偏好不值得讓 app 掛掉。
   }

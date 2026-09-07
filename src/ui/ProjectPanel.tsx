@@ -27,7 +27,6 @@ export function ProjectPanel() {
 
   return (
     <>
-      <h2>專案資料夾</h2>
       {serviceHealth.value === null ? <ServiceOffline /> : <ProjectBody />}
     </>
   )
