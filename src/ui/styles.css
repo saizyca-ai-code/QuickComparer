@@ -20,18 +20,40 @@ body {
   color: var(--text);
   font: 13px/1.5 "Segoe UI", system-ui, sans-serif;
   height: 100vh;
-  display: grid;
-  grid-template-columns: 1fr 320px;
   overflow: hidden;
 }
 
-/* body 是兩欄 grid，掛載點不該多插一層 box。 */
 #app { display: contents; }
 
+/*
+ * Viewer 在左、面板在右，底部跨滿寬。
+ * 面板收合時把該欄換成窄邊條，欄寬用 grid-template-columns 切換。
+ *
+ * 曾經做成左右各一欄，實際用起來檢視區被夾得太窄 —— 檢視區是這個工具的主體，
+ * 兩側都放面板等於同時從兩邊擠它。
+ */
+#shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "viewer right"
+    "bottom bottom";
+}
+#shell.right-collapsed { grid-template-columns: 1fr 28px; }
+#shell.fullscreen {
+  grid-template-columns: 1fr;
+  grid-template-areas: "viewer";
+}
+
 main {
+  grid-area: viewer;
+  position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
 }
 
 #stage {
@@ -47,8 +69,8 @@ main {
  * 它是置換元素，backing size（canvas.width/height）會把 #stage 撐開；而
  * height:100% 對一個由 flex 決定高度的父層是循環解析，瀏覽器會退回用固有高度。
  * 接著繪製迴圈又把撐大後的 rect 寫回 backing —— 值只會漲不會縮，視窗一縮小
- * 傳輸列就被推到畫面外（實測視窗高 700 時 #stage 變成 1278）。
- * 絕對定位讓它無法回頭影響版面。
+ * 底部區就被推到畫面外（實測視窗高 700 時 #stage 變成 1278）。
+ * 絕對定位讓它無法回頭影響版面。可折疊與全螢幕讓版面變動更頻繁，這條紀律更重要。
  */
 #stage canvas {
   position: absolute;
@@ -59,6 +81,162 @@ main {
 }
 
 #stage.dragging { outline: 2px dashed var(--accent); outline-offset: -8px; }
+
+#exitFullscreen {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: auto;
+  padding: 4px 12px;
+  z-index: 2;
+  background: rgba(12, 13, 16, 0.8);
+}
+
+/* ---------------------------------------------------------------- 面板 */
+
+.panel {
+  background: var(--panel);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.panel-right { grid-area: right; border-left: 1px solid var(--line); }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  flex: none;
+}
+
+.panel-head-actions { display: flex; align-items: center; gap: 8px; }
+.panel-head-actions button { font-size: 13px; line-height: 1; }
+
+.panel-body {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ---------------------------------------------------------------- 區塊 */
+
+.section { border-bottom: 1px solid var(--line); }
+.section:last-child { border-bottom: none; }
+
+.section-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-radius: 0;
+  color: var(--dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.section-head:hover:not(:disabled) { color: var(--text); border: none; }
+.section-caret { color: var(--dim); }
+
+.section-body { padding: 0 12px 12px; }
+.section-body > h2:first-child { margin-top: 0; }
+
+/* 收合後留一條窄邊條，不是整個消失 —— 消失了就找不回來。 */
+.panel-rail {
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  overflow: hidden;
+}
+.rail-right { grid-area: right; border-left: 1px solid var(--line); }
+.rail-toggle { font-size: 12px; }
+.rail-label {
+  writing-mode: vertical-rl;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+/* ---------------------------------------------------------------- 底部 */
+
+#bottom {
+  grid-area: bottom;
+  background: var(--panel);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+#infoStrip {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--dim);
+  border-bottom: 1px solid var(--line);
+}
+#infoStrip .spacer { flex: 1; }
+#infoStrip .mono { font-variant-numeric: tabular-nums; }
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+}
+#toolbar button { width: auto; padding: 4px 10px; }
+#toolbar button.wide { padding: 4px 14px; }
+#toolbar .spacer { flex: 1; }
+.toolbar-group { display: flex; gap: 4px; }
+
+#sideToggle { display: flex; gap: 2px; }
+#sideToggle button { min-width: 30px; }
+#sideToggle button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #1b2938;
+}
+
+#timeline { padding: 0 10px 10px; }
+#scrub { width: 100%; }
+
+#trackArea { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--panel-2);
+  font-size: 11px;
+}
+.track.empty { border-style: dashed; background: none; color: var(--dim); }
+.track-tag { color: var(--accent); font-weight: 600; min-width: 12px; }
+.track-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-len { font-variant-numeric: tabular-nums; color: var(--dim); }
 
 #dropHint {
   position: absolute;
@@ -103,36 +281,6 @@ code {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-#transport {
-  border-top: 1px solid var(--line);
-  background: var(--panel);
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-#transport button { width: auto; padding: 4px 10px; }
-#transport button.wide { padding: 4px 14px; }
-
-#sideToggle { display: flex; gap: 2px; }
-#sideToggle button { min-width: 30px; }
-#sideToggle button.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: #1b2938;
-}
-
-#scrub { flex: 1; min-width: 180px; }
-#timeLabel { font-variant-numeric: tabular-nums; color: var(--dim); min-width: 120px; }
-
-aside {
-  background: var(--panel);
-  border-left: 1px solid var(--line);
-  overflow-y: auto;
-  padding: 14px;
 }
 
 h2 {

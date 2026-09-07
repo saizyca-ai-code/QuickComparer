@@ -1,4 +1,4 @@
-/** 側欄：素材槽與比對／檢視／色彩的參數。除錯工具在 DebugPanel。 */
+/** 右panel：專案、素材與比對／檢視／色彩的參數。各區塊可垂直折疊。 */
 
 import { clearSlot, loadFile, params, slots, updateParams, type Slot } from '../app/state'
 import { DEFAULT_RENDER_PARAMS } from '../gl/params'
@@ -6,17 +6,28 @@ import type { CompareMode, Interpolation, Layout, TransferFunction } from '../gl
 import { normalizedSplitDegrees } from './splitInteraction'
 import { DebugPanel } from './DebugPanel'
 import { ProjectPanel } from './ProjectPanel'
+import { Section } from './Section'
 
-export function Sidebar() {
+export function RightPanelContent() {
   return (
-    <aside>
-      <ProjectPanel />
-      <SourceSlots />
-      <CompareSection />
-      <ViewSection />
-      <ColorSection />
+    <>
+      <Section title="專案">
+        <ProjectPanel />
+      </Section>
+      <Section title="素材">
+        <SourceSlots />
+      </Section>
+      <Section title="比對">
+        <CompareSection />
+      </Section>
+      <Section title="檢視">
+        <ViewSection />
+      </Section>
+      <Section title="色彩">
+        <ColorSection />
+      </Section>
       <DebugPanel />
-    </aside>
+    </>
   )
 }
 
@@ -25,7 +36,6 @@ export function Sidebar() {
 function SourceSlots() {
   return (
     <>
-      <h2>素材</h2>
       {([0, 1] as const).map((slot) => (
         <SourceSlot key={slot} slot={slot} />
       ))}
@@ -83,7 +93,6 @@ function CompareSection() {
   const p = params.value
   return (
     <>
-      <h2>比對</h2>
       <Row label="佈局">
         <select
           value={p.layout}
@@ -151,7 +160,6 @@ function ViewSection() {
   const p = params.value
   return (
     <>
-      <h2>檢視</h2>
       <Row label="插值">
         <select
           value={p.interpolation}
@@ -204,7 +212,6 @@ function ColorSection() {
   const p = params.value
   return (
     <>
-      <h2>色彩</h2>
       <Row label="輸出">
         <select
           value={p.outputTransfer}
