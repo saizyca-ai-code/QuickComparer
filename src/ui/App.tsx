@@ -10,7 +10,13 @@
 
 import { useEffect } from 'preact/hooks'
 import { toggleSide, transport } from '../app/state'
-import { exitFullscreen, panels, toggleFullscreen, viewerFullscreen } from '../app/layout'
+import {
+  exitFullscreen,
+  panels,
+  setAllSections,
+  toggleFullscreen,
+  viewerFullscreen,
+} from '../app/layout'
 import { RightPanelContent } from './RightPanel'
 import { SidePanel } from './Panel'
 import { BottomBar } from './BottomBar'
@@ -73,7 +79,20 @@ export function App() {
       </main>
 
       {!full && (
-        <SidePanel which="right" label="面板">
+        <SidePanel
+          which="right"
+          label="面板"
+          actions={
+            <>
+              <button class="link" title="全部展開" onClick={() => setAllSections(true)}>
+                ⊕
+              </button>
+              <button class="link" title="全部折疊" onClick={() => setAllSections(false)}>
+                ⊖
+              </button>
+            </>
+          }
+        >
           <RightPanelContent />
         </SidePanel>
       )}

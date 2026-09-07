@@ -12,10 +12,12 @@ interface Props {
   which: keyof PanelState
   /** 收合時顯示在窄邊條上的文字。 */
   label: string
+  /** 放在標題列上的額外動作，收合時一併隱藏。 */
+  actions?: ComponentChildren
   children: ComponentChildren
 }
 
-export function SidePanel({ which, label, children }: Props) {
+export function SidePanel({ which, label, actions, children }: Props) {
   const open = panels.value[which]
 
   if (!open) {
@@ -33,9 +35,12 @@ export function SidePanel({ which, label, children }: Props) {
     <aside class="panel panel-right">
       <div class="panel-head">
         <span>{label}</span>
-        <button class="link" title={`收合${label}`} onClick={() => togglePanel(which)}>
-          ▸
-        </button>
+        <span class="panel-head-actions">
+          {actions}
+          <button class="link" title={`收合${label}`} onClick={() => togglePanel(which)}>
+            ▸
+          </button>
+        </span>
       </div>
       <div class="panel-body">{children}</div>
     </aside>

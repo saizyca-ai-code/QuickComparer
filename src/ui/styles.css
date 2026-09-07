@@ -116,6 +116,9 @@ main {
   flex: none;
 }
 
+.panel-head-actions { display: flex; align-items: center; gap: 8px; }
+.panel-head-actions button { font-size: 13px; line-height: 1; }
+
 .panel-body {
   overflow-y: auto;
   flex: 1;

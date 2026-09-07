@@ -6,7 +6,7 @@
  */
 
 import type { ComponentChildren } from 'preact'
-import { isSectionOpen, toggleSection } from '../app/layout'
+import { isSectionOpen, registerSection, toggleSection } from '../app/layout'
 
 export function Section({
   title,
@@ -15,6 +15,7 @@ export function Section({
   title: string
   children: ComponentChildren
 }) {
+  registerSection(title)
   const open = isSectionOpen(title)
   return (
     <section class="section">

@@ -65,6 +65,24 @@ export function isSectionOpen(name: string): boolean {
 }
 
 /**
+ * 已知的區塊名稱。
+ *
+ * 由 Section 自己登記，而不是維護一份清單 —— 清單一定會跟實際的區塊脫節，
+ * 而脫節的症狀是「全部折疊」漏掉某一塊，那種 bug 不會有人回報，只會覺得怪。
+ */
+const knownSections = new Set<string>(Object.keys(DEFAULT_SECTIONS))
+
+export function registerSection(name: string): void {
+  knownSections.add(name)
+}
+
+export function setAllSections(open: boolean): void {
+  const next: SectionState = {}
+  for (const name of knownSections) next[name] = open
+  sections.value = { ...sections.value, ...next }
+}
+
+/**
  * 全螢幕檢視：隱藏三個面板，不呼叫瀏覽器的 fullscreen。
  *
  * 比對時常要對照別的視窗，真正的全螢幕反而礙事；保留視窗框，只是把面板收掉。
